@@ -1687,3 +1687,5 @@ yfinance==1.1.0 \
     --hash=sha256:1e852ce10a5d6679200efa2b09ed3f3b01dbe84505e2c1c139be7d2b3a597b10 \
     --hash=sha256:e610fec1d2b052e3b8f2cf44bdcff014bcf15458a9b072d5a3e02507e20d69d2
     # via sn-ann
+
+plotly
