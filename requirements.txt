@@ -720,7 +720,9 @@ multitasking==0.0.12 \
 narwhals==2.16.0 \
     --hash=sha256:155bb45132b370941ba0396d123cf9ed192bf25f39c4cea726f2da422ca4e145 \
     --hash=sha256:846f1fd7093ac69d63526e50732033e86c30ea0026a44d9b23991010c7d1485d
-    # via altair
+    # via
+    #   altair
+    #   plotly
 networkx==3.4.2 ; python_full_version < '3.11' \
     --hash=sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1 \
     --hash=sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f
@@ -938,6 +940,7 @@ packaging==26.0 \
     # via
     #   altair
     #   matplotlib
+    #   plotly
     #   streamlit
 pandas==2.3.3 \
     --hash=sha256:0242fe9a49aa8b4d78a4fa03acb397a58833ef6199e9aa40a95f027bb3a1b6e7 \
@@ -1095,6 +1098,10 @@ platformdirs==4.5.1 \
     --hash=sha256:61d5cdcc6065745cdd94f0f878977f8de9437be93de97c1c12f853c9c0cdcbda \
     --hash=sha256:d03afa3963c806a9bed9d5125c8f4cb2fdaf74a55ab60e5d59b3fde758104d31
     # via yfinance
+plotly==6.5.2 \
+    --hash=sha256:7478555be0198562d1435dee4c308268187553cc15516a2f4dd034453699e393 \
+    --hash=sha256:91757653bd9c550eeea2fa2404dba6b85d1e366d54804c340b2c874e5a7eb4a4
+    # via sn-ann
 protobuf==6.33.5 \
     --hash=sha256:3093804752167bcab3998bec9f1048baae6e29505adaf1afd14a37bddede533c \
     --hash=sha256:69915a973dd0f60f31a08b8318b73eab2bd6a392c79184b3612226b0a3f8ec02 \
@@ -1687,5 +1694,3 @@ yfinance==1.1.0 \
     --hash=sha256:1e852ce10a5d6679200efa2b09ed3f3b01dbe84505e2c1c139be7d2b3a597b10 \
     --hash=sha256:e610fec1d2b052e3b8f2cf44bdcff014bcf15458a9b072d5a3e02507e20d69d2
     # via sn-ann
-
-plotly
