@@ -9,657 +9,823 @@ import plotly.graph_objects as go
 from datetime import timedelta
 
 # ==========================================
-# 1. CONFIGURATION ET CONSTANTES
+# 1. CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="Prédiction Netflix - Ensemble AI", 
+    page_title="NFLX · Prédiction IA",
     layout="wide",
     initial_sidebar_state="expanded",
     page_icon="📈"
 )
 
-# CSS personnalisé pour un meilleur design
 st.markdown("""
-    <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        background: linear-gradient(90deg, #E50914 0%, #B20710 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        padding: 1rem 0;
-    }
-    .subtitle {
-        text-align: center;
-        color: #888;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin: 0.5rem 0;
-    }
-    .stButton>button {
-        width: 100%;
-        background: linear-gradient(90deg, #E50914 0%, #B20710 100%);
-        color: white;
-        font-weight: bold;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        border: none;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(229, 9, 20, 0.4);
-    }
-    .prediction-card {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #E50914;
-        margin: 1rem 0;
-    }
-    .info-box {
-        background: rgba(102, 126, 234, 0.1);
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 3px solid #667eea;
-        margin: 1rem 0;
-    }
-    .model-badge {
-        display: inline-block;
-        padding: 0.3rem 0.8rem;
-        border-radius: 15px;
-        font-size: 0.85rem;
-        font-weight: bold;
-        margin: 0.2rem;
-    }
-    .bilstm-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    .gru-badge {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-    }
-    .ensemble-badge {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: white;
-    }
-    </style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+    background-color: #0A0A0A;
+    color: #E5E5E5;
+}
+
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 2rem 3rem; max-width: 1400px; }
+
+[data-testid="stSidebar"] {
+    background-color: #111111;
+    border-right: 1px solid #1E1E1E;
+}
+[data-testid="stSidebar"] .block-container { padding: 2rem 1.5rem; }
+
+.wordmark {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.12em;
+    color: #E50914;
+    margin-bottom: 0.25rem;
+}
+.wordmark-sub {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 2rem;
+}
+
+.hero { border-bottom: 1px solid #1E1E1E; padding-bottom: 2rem; margin-bottom: 2.5rem; }
+.hero-ticker {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4.5rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #FFFFFF;
+    margin: 0;
+}
+.hero-ticker span { color: #E50914; }
+.hero-desc {
+    font-size: 0.85rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #555;
+    margin-top: 0.4rem;
+}
+
+.kpi-row {
+    display: flex;
+    gap: 1px;
+    margin-bottom: 2.5rem;
+    background: #1E1E1E;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.kpi-cell {
+    flex: 1;
+    background: #111111;
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.kpi-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #555;
+}
+.kpi-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.03em;
+    color: #FFFFFF;
+    line-height: 1;
+}
+.kpi-delta-up   { font-size: 0.78rem; color: #46D369; font-weight: 500; }
+.kpi-delta-down { font-size: 0.78rem; color: #E50914; font-weight: 500; }
+.kpi-neutral    { font-size: 0.78rem; color: #888;    font-weight: 400; }
+
+.hr { border: none; border-top: 1px solid #1E1E1E; margin: 2rem 0; }
+
+.section-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 1rem;
+}
+
+.pill-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.pill {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.pill-bilstm  { background: rgba(70,211,105,0.12); color: #46D369; border: 1px solid rgba(70,211,105,0.25); }
+.pill-gru     { background: rgba(229,9,20,0.12);   color: #E50914; border: 1px solid rgba(229,9,20,0.25); }
+.pill-ensemble{ background: rgba(255,255,255,0.06); color: #CCCCCC; border: 1px solid rgba(255,255,255,0.12); }
+
+.stButton > button {
+    background: #E50914 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 3px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    padding: 0.7rem 1.6rem !important;
+    width: 100% !important;
+    transition: background 0.15s ease, transform 0.1s ease !important;
+    box-shadow: none !important;
+}
+.stButton > button:hover {
+    background: #F40612 !important;
+    transform: translateY(-1px) !important;
+}
+.stButton > button:active { transform: translateY(0) !important; }
+
+[data-testid="stSlider"] > div > div > div { background: #E50914 !important; }
+[data-testid="stSlider"] > div > div > div > div { background: #E50914 !important; }
+
+[data-testid="stSelectbox"] > div > div {
+    background: #111111 !important;
+    border: 1px solid #2A2A2A !important;
+    border-radius: 3px !important;
+    color: #E5E5E5 !important;
+}
+
+.result-panel {
+    background: #111111;
+    border: 1px solid #1E1E1E;
+    border-radius: 4px;
+    padding: 1.5rem;
+    height: 100%;
+}
+.result-panel-accent-green { border-top: 2px solid #46D369; }
+.result-panel-accent-red   { border-top: 2px solid #E50914; }
+.result-panel-accent-white { border-top: 2px solid #CCCCCC; }
+.result-model-name {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 0.6rem;
+}
+.result-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    color: #FFFFFF;
+    line-height: 1;
+    margin-bottom: 0.4rem;
+}
+.result-delta-up   { font-size: 0.85rem; color: #46D369; font-weight: 600; }
+.result-delta-down { font-size: 0.85rem; color: #E50914; font-weight: 600; }
+
+.convergence-box {
+    background: #111111;
+    border: 1px solid #1E1E1E;
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.conv-indicator { font-size: 1.4rem; }
+.conv-title { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: #888; margin-bottom: 0.2rem; }
+.conv-msg   { font-size: 0.85rem; color: #CCCCCC; }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #1E1E1E;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 1.5rem;
+}
+.stats-cell { background: #111111; padding: 1rem 1.25rem; }
+.stats-key  { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: #555; margin-bottom: 0.3rem; }
+.stats-val  { font-size: 1rem; font-weight: 500; color: #E5E5E5; }
+
+.trend-card {
+    background: #111111;
+    border: 1px solid #1E1E1E;
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    height: 100%;
+}
+.trend-model    { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #555; margin-bottom: 0.5rem; }
+.trend-pct-up   { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: #46D369; line-height: 1; }
+.trend-pct-down { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: #E50914; line-height: 1; }
+.trend-label    { font-size: 0.75rem; color: #666; margin-top: 0.3rem; }
+.trend-final    { font-size: 0.8rem; color: #888; margin-top: 0.6rem; font-weight: 500; }
+
+[data-testid="stDataFrame"] { border: 1px solid #1E1E1E; border-radius: 4px; overflow: hidden; }
+[data-testid="stDataFrame"] table { background: #0A0A0A; }
+[data-testid="stDataFrame"] th {
+    background: #111111 !important; color: #555 !important;
+    font-size: 0.7rem !important; letter-spacing: 0.15em !important;
+    text-transform: uppercase !important; border-bottom: 1px solid #1E1E1E !important;
+}
+[data-testid="stDataFrame"] td {
+    color: #CCC !important; font-size: 0.85rem !important;
+    border-bottom: 1px solid #141414 !important;
+}
+
+[data-testid="stAlert"] {
+    background: #111111 !important; border: 1px solid #2A2A2A !important;
+    border-radius: 3px !important; color: #AAA !important; font-size: 0.82rem !important;
+}
+[data-testid="stExpander"] {
+    background: #111111 !important; border: 1px solid #1E1E1E !important; border-radius: 4px !important;
+}
+.stSpinner > div { border-color: #E50914 !important; }
+[data-testid="stProgressBar"] > div > div { background: #E50914 !important; }
+
+.footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid #1E1E1E;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-brand   { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.1em; color: #333; }
+.footer-warning { font-size: 0.72rem; color: #444; max-width: 480px; text-align: right; }
+</style>
 """, unsafe_allow_html=True)
 
-# En-tête
-st.markdown('<h1 class="main-header">📈 Prédiction Netflix (NFLX)</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Ensemble d\'IA - Modèles Bi-LSTM & GRU</p>', unsafe_allow_html=True)
-
-# Paramètres (Doivent correspondre EXACTEMENT à ceux de l'entraînement)
-SEQ_LENGTH = 60
-HIDDEN_SIZE_1 = 128
-HIDDEN_SIZE_2 = 211
-NUM_LAYERS = 2
-INPUT_SIZE = 1
-OUTPUT_SIZE = 1
-TICKER = "NFLX"
 
 # ==========================================
-# 2. DÉFINITION DES MODÈLES
+# 2. CONSTANTES
+# ==========================================
+SEQ_LENGTH    = 60
+HIDDEN_SIZE_1 = 128
+HIDDEN_SIZE_2 = 211
+NUM_LAYERS    = 2
+INPUT_SIZE    = 1
+OUTPUT_SIZE   = 1
+TICKER        = "NFLX"
+
+
+# ==========================================
+# 3. MODÈLES
 # ==========================================
 class BiLSTMModel(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size, dropout=0.2):
-        super(BiLSTMModel, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
+        self.num_layers  = num_layers
         self.lstm = nn.LSTM(
-            input_size, hidden_size, num_layers, 
+            input_size, hidden_size, num_layers,
             batch_first=True, bidirectional=True, dropout=dropout
         )
         self.fc = nn.Linear(hidden_size * 2, output_size)
-        
+
     def forward(self, x):
         h0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(x.device)
         out, _ = self.lstm(x, (h0, c0))
-        out = self.fc(out[:, -1, :])
-        return out
+        return self.fc(out[:, -1, :])
+
 
 class GRUModel(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size, dropout=0.2):
-        super(GRUModel, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
+        self.num_layers  = num_layers
         self.gru = nn.GRU(
             input_size, hidden_size, num_layers,
             batch_first=True, dropout=dropout
         )
         self.fc = nn.Linear(hidden_size, output_size)
-        
+
     def forward(self, x):
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         out, _ = self.gru(x, h0)
-        out = self.fc(out[:, -1, :])
-        return out
+        return self.fc(out[:, -1, :])
+
 
 # ==========================================
-# 3. FONCTIONS UTILITAIRES
+# 4. FONCTIONS
 # ==========================================
 @st.cache_resource
 def load_trained_models(bilstm_path, gru_path, device):
-    """Charge les deux modèles et leurs poids."""
-    # Modèle Bi-LSTM
-    bilstm_model = BiLSTMModel(INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE)
-    bilstm_model.load_state_dict(torch.load(bilstm_path, map_location=torch.device('cpu')))
-    bilstm_model.to(device)
-    bilstm_model.eval()
-    
-    # Modèle GRU
-    gru_model = GRUModel(INPUT_SIZE, HIDDEN_SIZE_2, NUM_LAYERS, OUTPUT_SIZE)
-    gru_model.load_state_dict(torch.load(gru_path, map_location=torch.device('cpu')))
-    gru_model.to(device)
-    gru_model.eval()
-    
-    return bilstm_model, gru_model
+    bilstm = BiLSTMModel(INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE)
+    bilstm.load_state_dict(torch.load(bilstm_path, map_location='cpu'))
+    bilstm.to(device).eval()
+    gru = GRUModel(INPUT_SIZE, HIDDEN_SIZE_2, NUM_LAYERS, OUTPUT_SIZE)
+    gru.load_state_dict(torch.load(gru_path, map_location='cpu'))
+    gru.to(device).eval()
+    return bilstm, gru
+
 
 @st.cache_data(ttl=3600)
 def load_data():
-    """Charge les données historiques via Yahoo Finance avec retry."""
-    import time
-    
-    for attempt in range(3):
-        try:
-            data = yf.download(TICKER, period="2y", interval="1d", progress=False)
-            
-            if data.empty:
-                if attempt < 2:
-                    time.sleep(5 * (attempt + 1))  # wait 5s, then 10s
-                    continue
-                else:
-                    return pd.DataFrame()  # return empty after 3 tries
-            
-            if isinstance(data.columns, pd.MultiIndex):
-                data = data.xs('Close', level=0, axis=1) if 'Close' in data.columns.get_level_values(0) else data
-            elif 'Close' in data.columns:
-                data = data[['Close']]
-            
-            if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
-                data = data.iloc[:, 0].to_frame()
-            
-            data.columns = ['Close']
-            return data
-            
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(5 * (attempt + 1))
-            else:
-                st.error(f"Impossible de télécharger les données après 3 tentatives: {e}")
-                return pd.DataFrame()
-    
-    return pd.DataFrame()
+    data = yf.download(TICKER, period="2y", interval="1d", progress=False)
+    if isinstance(data.columns, pd.MultiIndex):
+        if 'Close' in data.columns.get_level_values(0):
+            data = data.xs('Close', level=0, axis=1)
+    elif 'Close' in data.columns:
+        data = data[['Close']]
+    if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
+        data = data.iloc[:, 0].to_frame()
+    data.columns = ['Close']
+    return data
+
 
 def predict_future(model, initial_sequence, num_days, device):
-    """Génère des prédictions pour un modèle donné."""
     current_seq = initial_sequence.clone()
     predictions = []
-    
     for _ in range(num_days):
         with torch.no_grad():
             pred = model(current_seq)
             predictions.append(pred.item())
             pred_tensor = pred.view(1, 1, 1)
             current_seq = torch.cat((current_seq[:, 1:, :], pred_tensor), dim=1)
-    
     return predictions
 
+
 # ==========================================
-# 4. SIDEBAR - PARAMÈTRES
+# 5. SIDEBAR
 # ==========================================
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg", width=200)
-    st.markdown("---")
-    
-    st.markdown("### ⚙️ Paramètres de Prédiction")
-    
-    # Sélection du nombre de jours
+    st.markdown('<div class="wordmark">NFLX</div>', unsafe_allow_html=True)
+    st.markdown('<div class="wordmark-sub">Prédiction IA · Ensemble</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-label">Prédiction</div>', unsafe_allow_html=True)
     prediction_days = st.slider(
-        "Nombre de jours à prédire",
-        min_value=1,
-        max_value=30,
-        value=15,
-        help="Choisissez le nombre de jours ouvrés à prédire (1-30 jours)"
+        "Horizon (jours ouvrés)",
+        min_value=1, max_value=30, value=15,
+        help="Nombre de jours ouvrés à projeter"
     )
-    
-    # Sélection de la période d'historique à afficher
+    st.markdown("")
+
+    st.markdown('<div class="section-label">Historique affiché</div>', unsafe_allow_html=True)
     history_days = st.selectbox(
-        "Historique à afficher",
-        options=[30, 60, 90, 180, 365],
+        "",
+        options=[5, 15, 30, 60, 90, 180, 365],
         index=2,
-        help="Nombre de jours d'historique à afficher sur le graphique"
+        format_func=lambda x: f"{x} jours"
     )
-    
-    st.markdown("---")
-    st.markdown("### 🤖 Modèles Utilisés")
-    # Bi-LSTM
-    st.markdown('<span class="model-badge bilstm-badge">🔵 Bi-LSTM</span>', unsafe_allow_html=True)
-    st.caption("Réseau bidirectionnel à mémoire longue")
 
-    # GRU
-    st.markdown('<span class="model-badge gru-badge">🟣 GRU</span>', unsafe_allow_html=True)
-    st.caption("Unité récurrente à portes")
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
 
-    # Ensemble
-    st.markdown('<span class="model-badge ensemble-badge">💎 Ensemble</span>', unsafe_allow_html=True)
-    st.caption("Moyenne pondérée des deux modèles")
-    
-    st.markdown("---")
-    st.markdown("### 📊 Architecture")
-    st.info(f"""
-    **Couches cachées:** {HIDDEN_SIZE_1}  
-    **Nombre de couches:** {NUM_LAYERS}  
-    **Séquence d'entrée:** {SEQ_LENGTH} jours
-    """)
-    
-    st.markdown("---")
-    st.markdown("### ℹ️ À propos")
-    st.caption("""
-    Cette application combine deux modèles d'IA (Bi-LSTM et GRU) pour améliorer 
-    la précision des prédictions. L'approche "ensemble" réduit le risque d'erreur 
-    en moyennant les prédictions des deux modèles.
-    """)
-    st.warning("⚠️ Ces prédictions sont à titre informatif uniquement et ne constituent pas des conseils financiers.")
+    st.markdown('<div class="section-label">Modèles</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="pill-row">
+        <span class="pill pill-bilstm">Bi-LSTM</span>
+        <span class="pill pill-gru">GRU</span>
+        <span class="pill pill-ensemble">Ensemble</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("")
+    st.markdown("""
+    <div style="font-size:0.78rem; color:#555; line-height:1.7;">
+        Le <b style="color:#888">Bi-LSTM</b> capture les dépendances temporelles dans les deux sens.
+        Le <b style="color:#888">GRU</b> est plus compact et rapide à converger.
+        L'<b style="color:#888">Ensemble</b> moyenne les deux pour réduire la variance.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="section-label">Architecture</div>
+    <div style="font-size:0.78rem; color:#555; line-height:2;">
+        Séquence d'entrée — <b style="color:#888">{SEQ_LENGTH} jours</b><br>
+        Couches — <b style="color:#888">{NUM_LAYERS}</b><br>
+        Taille cachée — <b style="color:#888">{HIDDEN_SIZE_1} / {HIDDEN_SIZE_2}</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size:0.72rem; color:#3A3A3A; line-height:1.6;">
+        ⚠ Ces projections sont à titre informatif uniquement.<br>
+        Pas de conseil financier.
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ==========================================
-# 5. LOGIQUE PRINCIPALE
+# 6. CHARGEMENT
 # ==========================================
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Chargement
-with st.spinner('🔄 Chargement des modèles et des données...'):
+with st.spinner('Chargement des modèles et données…'):
     try:
         bilstm_model, gru_model = load_trained_models(
-            'best_bilstm_nflx.pth', 
-            'best_gru_nflx.pth', 
-            device
+            'best_bilstm_nflx.pth', 'best_gru_nflx.pth', device
         )
         df = load_data()
-        st.success("✅ Modèles Bi-LSTM et GRU chargés avec succès!")
     except FileNotFoundError as e:
-        st.error(f"❌ Fichier manquant: {str(e)}")
-        st.info("Assurez-vous que 'best_bilstm_nflx.pth' et 'best_gru_nflx.pth' sont présents.")
+        st.error(f"Fichier manquant : {e}")
+        st.info("Placez `best_bilstm_nflx.pth` et `best_gru_nflx.pth` dans le répertoire de l'app.")
         st.stop()
     except Exception as e:
-        st.error(f"❌ Erreur lors du chargement: {str(e)}")
+        st.error(f"Erreur au chargement : {e}")
         st.stop()
 
-# Guard: stop cleanly if data failed to load
-if df is None or df.empty:
-    st.error("❌ Impossible de charger les données depuis Yahoo Finance (rate limit ou erreur réseau).")
-    st.warning("💡 Streamlit Cloud partage des IPs avec d'autres apps — Yahoo Finance bloque parfois ces requêtes. Relancez dans quelques minutes.")
-    st.stop()
-
-# Safe to proceed
-last_date = df.index[-1]
-last_price = df['Close'].iloc[-1]
-
-# Calcul de la variation sur 24h et 7 jours
-price_change_1d = ((df['Close'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2] * 100) if len(df) > 1 else 0
-price_change_7d = ((df['Close'].iloc[-1] - df['Close'].iloc[-7]) / df['Close'].iloc[-7] * 100) if len(df) > 7 else 0
-
-st.markdown("### 📊 Données Actuelles du Marché")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Dernier Prix", 
-        f"${last_price:.2f}",
-        delta=f"{price_change_1d:.2f}% (24h)"
-    )
-
-with col2:
-    st.metric(
-        "Variation 7 jours",
-        f"{price_change_7d:.2f}%",
-        delta=None
-    )
-
-with col3:
-    st.metric(
-        "Volume",
-        f"{df['Close'].iloc[-1]:.0f}",
-        delta=None
-    )
-
-with col4:
-    st.metric(
-        "Dernière Mise à Jour",
-        last_date.strftime('%d/%m/%Y')
-    )
-
-st.markdown("---")
 
 # ==========================================
-# 6. PRÉDICTION AVEC LES DEUX MODÈLES
+# 7. HERO + KPIs
 # ==========================================
-st.markdown(f"### 🔮 Lancer la Prédiction ({prediction_days} jours)")
+last_date  = df.index[-1]
 
-col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-with col_btn2:
-    predict_button = st.button('🚀 Générer les Prédictions (Ensemble)', use_container_width=True)
+# float() explicite — évite les types scalaires pandas dans les f-strings et comparaisons
+last_price = float(df['Close'].iloc[-1])
+price_1d   = float((df['Close'].iloc[-1] - df['Close'].iloc[-2])  / df['Close'].iloc[-2]  * 100) if len(df) > 1  else 0.0
+price_7d   = float((df['Close'].iloc[-1] - df['Close'].iloc[-7])  / df['Close'].iloc[-7]  * 100) if len(df) > 7  else 0.0
+price_30d  = float((df['Close'].iloc[-1] - df['Close'].iloc[-30]) / df['Close'].iloc[-30] * 100) if len(df) > 30 else 0.0
+
+st.markdown(f"""
+<div class="hero">
+    <p class="hero-ticker">NET<span>FLIX</span></p>
+    <p class="hero-desc">NASDAQ · NFLX · Mise à jour {last_date.strftime('%d %b %Y').upper()}</p>
+</div>
+""", unsafe_allow_html=True)
+
+
+def delta_class(v):
+    return "kpi-delta-up" if v >= 0 else "kpi-delta-down"
+
+def delta_arrow(v):
+    return f"↑ +{v:.2f}%" if v >= 0 else f"↓ {v:.2f}%"
+
+
+st.markdown(f"""
+<div class="kpi-row">
+    <div class="kpi-cell">
+        <div class="kpi-label">Dernier cours</div>
+        <div class="kpi-value">${last_price:.2f}</div>
+        <div class="{delta_class(price_1d)}">{delta_arrow(price_1d)} 24h</div>
+    </div>
+    <div class="kpi-cell">
+        <div class="kpi-label">7 jours</div>
+        <div class="kpi-value">{price_7d:+.2f}%</div>
+        <div class="kpi-neutral">Performance hebdo</div>
+    </div>
+    <div class="kpi-cell">
+        <div class="kpi-label">30 jours</div>
+        <div class="kpi-value">{price_30d:+.2f}%</div>
+        <div class="kpi-neutral">Performance mensuelle</div>
+    </div>
+    <div class="kpi-cell">
+        <div class="kpi-label">Horizon prédit</div>
+        <div class="kpi-value">{prediction_days}J</div>
+        <div class="kpi-neutral">{prediction_days} jours ouvrés</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# 8. BOUTON DE PRÉDICTION
+# ==========================================
+st.markdown('<div class="section-label">Projection</div>', unsafe_allow_html=True)
+
+col_pad1, col_btn, col_pad2 = st.columns([2, 1, 2])
+with col_btn:
+    predict_button = st.button(f"→ Générer ({prediction_days}j)")
 
 if predict_button:
-    
-    with st.spinner(f'🤖 Génération des prédictions pour les {prediction_days} prochains jours...'):
-        # 1. Normalisation
-        scaler = MinMaxScaler(feature_range=(-1, 1))
+    with st.spinner(f'Calcul des projections sur {prediction_days} jours…'):
+
+        scaler      = MinMaxScaler(feature_range=(-1, 1))
         scaled_data = scaler.fit_transform(df[['Close']].values)
 
-        # 2. Préparation de la dernière séquence
         last_sequence = scaled_data[-SEQ_LENGTH:]
-        initial_seq = torch.tensor(last_sequence, dtype=torch.float32).view(1, SEQ_LENGTH, 1).to(device)
-        
-        # 3. Barre de progression
+        initial_seq   = torch.tensor(last_sequence, dtype=torch.float32).view(1, SEQ_LENGTH, 1).to(device)
+
         progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # 4. Prédictions Bi-LSTM
-        status_text.text("🔵 Prédiction avec Bi-LSTM...")
+        status_text  = st.empty()
+
+        status_text.text("Bi-LSTM — calcul en cours…")
         progress_bar.progress(0.33)
-        bilstm_predictions = predict_future(bilstm_model, initial_seq, prediction_days, device)
-        
-        # 5. Prédictions GRU
-        status_text.text("🟣 Prédiction avec GRU...")
+        bilstm_preds = predict_future(bilstm_model, initial_seq, prediction_days, device)
+
+        status_text.text("GRU — calcul en cours…")
         progress_bar.progress(0.66)
-        gru_predictions = predict_future(gru_model, initial_seq, prediction_days, device)
-        
-        # 6. Calcul de la moyenne (Ensemble)
-        status_text.text("🔷 Calcul de l'ensemble (moyenne)...")
+        gru_preds = predict_future(gru_model, initial_seq, prediction_days, device)
+
+        status_text.text("Ensemble — agrégation…")
         progress_bar.progress(1.0)
-        ensemble_predictions = [(b + g) / 2 for b, g in zip(bilstm_predictions, gru_predictions)]
-        
+        ensemble_preds = [(b + g) / 2 for b, g in zip(bilstm_preds, gru_preds)]
+
         progress_bar.empty()
         status_text.empty()
 
-        # 7. Inversion de la normalisation
-        bilstm_predictions_inv = scaler.inverse_transform(np.array(bilstm_predictions).reshape(-1, 1))
-        gru_predictions_inv = scaler.inverse_transform(np.array(gru_predictions).reshape(-1, 1))
-        ensemble_predictions_inv = scaler.inverse_transform(np.array(ensemble_predictions).reshape(-1, 1))
+        bilstm_inv   = scaler.inverse_transform(np.array(bilstm_preds).reshape(-1, 1))
+        gru_inv      = scaler.inverse_transform(np.array(gru_preds).reshape(-1, 1))
+        ensemble_inv = scaler.inverse_transform(np.array(ensemble_preds).reshape(-1, 1))
 
-        # 8. Création des dates futures
         future_dates = pd.bdate_range(start=last_date + timedelta(days=1), periods=prediction_days)
-        
-        # DataFrame avec les trois prédictions
         df_future = pd.DataFrame({
-            'Bi-LSTM': bilstm_predictions_inv.flatten(),
-            'GRU': gru_predictions_inv.flatten(),
-            'Ensemble': ensemble_predictions_inv.flatten()
+            'Bi-LSTM':  bilstm_inv.flatten(),
+            'GRU':      gru_inv.flatten(),
+            'Ensemble': ensemble_inv.flatten()
         }, index=future_dates)
-        
-        # ==========================================
-        # 9. VISUALISATION COMPARATIVE
-        # ==========================================
-        st.markdown("---")
-        st.markdown("### 📈 Résultats de la Prédiction - Comparaison des Modèles")
-        
-        # Métriques comparatives
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown('<span class="model-badge bilstm-badge">Bi-LSTM</span>', unsafe_allow_html=True)
-            bilstm_variation = ((df_future['Bi-LSTM'].iloc[-1] - last_price) / last_price) * 100
-            st.metric(
-                f"Prix J+{prediction_days}", 
-                f"${df_future['Bi-LSTM'].iloc[-1]:.2f}",
-                delta=f"{bilstm_variation:.2f}%"
-            )
-        
-        with col2:
-            st.markdown('<span class="model-badge gru-badge">GRU</span>', unsafe_allow_html=True)
-            gru_variation = ((df_future['GRU'].iloc[-1] - last_price) / last_price) * 100
-            st.metric(
-                f"Prix J+{prediction_days}", 
-                f"${df_future['GRU'].iloc[-1]:.2f}",
-                delta=f"{gru_variation:.2f}%"
-            )
-        
-        with col3:
-            st.markdown('<span class="model-badge ensemble-badge">Ensemble</span>', unsafe_allow_html=True)
-            ensemble_variation = ((df_future['Ensemble'].iloc[-1] - last_price) / last_price) * 100
-            st.metric(
-                f"Prix J+{prediction_days}", 
-                f"${df_future['Ensemble'].iloc[-1]:.2f}",
-                delta=f"{ensemble_variation:.2f}%"
-            )
 
-        # Graphique interactif Plotly avec les 3 modèles
-        st.markdown("### 📉 Visualisation Interactive - Comparaison des Modèles")
-        
-        fig = go.Figure()
+        bilstm_var   = float((df_future['Bi-LSTM'].iloc[-1]  - last_price) / last_price * 100)
+        gru_var      = float((df_future['GRU'].iloc[-1]      - last_price) / last_price * 100)
+        ensemble_var = float((df_future['Ensemble'].iloc[-1] - last_price) / last_price * 100)
 
-        # Historique récent
-        recent_df = df.iloc[-history_days:]
-        fig.add_trace(go.Scatter(
-            x=recent_df.index, 
-            y=recent_df['Close'], 
-            mode='lines', 
-            name='Historique Réel',
-            line=dict(color='#888888', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(136, 136, 136, 0.1)'
-        ))
+    # ---- RÉSULTATS ----
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Résultats</div>', unsafe_allow_html=True)
 
-        # Prédictions Bi-LSTM
-        fig.add_trace(go.Scatter(
-            x=df_future.index, 
-            y=df_future['Bi-LSTM'], 
-            mode='lines+markers', 
-            name='Bi-LSTM',
-            line=dict(color='#667eea', width=2, dash='dot'),
-            marker=dict(size=5, symbol='circle')
-        ))
-        
-        # Prédictions GRU
-        fig.add_trace(go.Scatter(
-            x=df_future.index, 
-            y=df_future['GRU'], 
-            mode='lines+markers', 
-            name='GRU',
-            line=dict(color='#f5576c', width=2, dash='dot'),
-            marker=dict(size=5, symbol='square')
-        ))
-        
-        # Prédictions Ensemble (Moyenne)
-        fig.add_trace(go.Scatter(
-            x=df_future.index, 
-            y=df_future['Ensemble'], 
-            mode='lines+markers', 
-            name='Ensemble (Moyenne)',
-            line=dict(color='#00f2fe', width=3),
-            marker=dict(size=7, symbol='diamond')
-        ))
-        
-        # Liens visuels
-        fig.add_trace(go.Scatter(
-            x=[recent_df.index[-1], df_future.index[0]],
-            y=[recent_df['Close'].iloc[-1], df_future['Bi-LSTM'].iloc[0]],
-            mode='lines',
-            showlegend=False,
-            line=dict(color='#667eea', width=1, dash='dot'),
-            opacity=0.5
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=[recent_df.index[-1], df_future.index[0]],
-            y=[recent_df['Close'].iloc[-1], df_future['GRU'].iloc[0]],
-            mode='lines',
-            showlegend=False,
-            line=dict(color='#f5576c', width=1, dash='dot'),
-            opacity=0.5
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=[recent_df.index[-1], df_future.index[0]],
-            y=[recent_df['Close'].iloc[-1], df_future['Ensemble'].iloc[0]],
-            mode='lines',
-            showlegend=False,
-            line=dict(color='#00f2fe', width=2),
-            opacity=0.7
-        ))
-
-        fig.update_layout(
-            title={
-                'text': f"Projection du prix Netflix - Comparaison Bi-LSTM vs GRU vs Ensemble ({prediction_days} jours)",
-                'x': 0.5,
-                'xanchor': 'center',
-                'font': {'size': 18}
-            },
-            xaxis_title="Date",
-            yaxis_title="Prix ($)",
-            template="plotly_dark",
-            hovermode="x unified",
-            height=650,
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(0,0,0,0.5)"
-            )
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Analyse détaillée par modèle
-        st.markdown("### 🎯 Analyse Comparative des Tendances")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        def get_trend_info(variation):
-            if variation > 0:
-                return "📈", "haussière", "green"
-            else:
-                return "📉", "baissière", "red"
-        
-        with col1:
-            emoji, tendance, color = get_trend_info(bilstm_variation)
+    c1, c2, c3 = st.columns(3)
+    panels = [
+        (c1, "Bi-LSTM",  float(df_future['Bi-LSTM'].iloc[-1]),  bilstm_var,   "result-panel-accent-green"),
+        (c2, "GRU",      float(df_future['GRU'].iloc[-1]),      gru_var,      "result-panel-accent-red"),
+        (c3, "Ensemble", float(df_future['Ensemble'].iloc[-1]), ensemble_var, "result-panel-accent-white"),
+    ]
+    for col, name, price, var, accent in panels:
+        delta_cls = "result-delta-up" if var >= 0 else "result-delta-down"
+        arrow     = "↑" if var >= 0 else "↓"
+        with col:
             st.markdown(f"""
-            <div class="info-box" style="border-left-color: #667eea;">
-                <h4>{emoji} Bi-LSTM - Tendance {tendance.capitalize()}</h4>
-                <p style='font-size: 1.3rem; color: {color}; font-weight: bold;'>
-                    {bilstm_variation:+.2f}%
-                </p>
-                <p style='font-size: 0.9rem;'>Prix final: ${df_future['Bi-LSTM'].iloc[-1]:.2f}</p>
+            <div class="result-panel {accent}">
+                <div class="result-model-name">{name} · J+{prediction_days}</div>
+                <div class="result-price">${price:.2f}</div>
+                <div class="{delta_cls}">{arrow} {var:+.2f}%</div>
             </div>
             """, unsafe_allow_html=True)
-        
-        with col2:
-            emoji, tendance, color = get_trend_info(gru_variation)
+
+    # ---- GRAPHIQUE ----
+    st.markdown("")
+    recent_df = df.iloc[-history_days:]
+
+    fig = go.Figure()
+
+    # Historique
+    fig.add_trace(go.Scatter(
+        x=recent_df.index,
+        y=recent_df['Close'],
+        mode='lines',
+        name='Historique',
+        line=dict(color='#3A3A3A', width=1.5),
+        fill='tozeroy',
+        fillcolor='rgba(255,255,255,0.02)',
+        hovertemplate='%{x|%d %b %Y}<br>$%{y:.2f}<extra>Historique</extra>'
+    ))
+
+    # Connexions historique → prédiction
+    for clr, col_name in [('#46D369','Bi-LSTM'), ('#E50914','GRU'), ('#BBBBBB','Ensemble')]:
+        fig.add_trace(go.Scatter(
+            x=[recent_df.index[-1], df_future.index[0]],
+            y=[float(recent_df['Close'].iloc[-1]), float(df_future[col_name].iloc[0])],
+            mode='lines',
+            showlegend=False,
+            hoverinfo='skip',
+            line=dict(color=clr, width=1, dash='dot'),
+            opacity=0.4
+        ))
+
+    # Bi-LSTM
+    fig.add_trace(go.Scatter(
+        x=df_future.index, y=df_future['Bi-LSTM'],
+        mode='lines', name='Bi-LSTM',
+        line=dict(color='#46D369', width=1.5, dash='dot'),
+        hovertemplate='%{x|%d %b %Y}<br>$%{y:.2f}<extra>Bi-LSTM</extra>'
+    ))
+
+    # GRU
+    fig.add_trace(go.Scatter(
+        x=df_future.index, y=df_future['GRU'],
+        mode='lines', name='GRU',
+        line=dict(color='#E50914', width=1.5, dash='dot'),
+        hovertemplate='%{x|%d %b %Y}<br>$%{y:.2f}<extra>GRU</extra>'
+    ))
+
+    # Bande de confiance
+    half_gap = (df_future['Bi-LSTM'] - df_future['GRU']).abs() / 2
+    fig.add_trace(go.Scatter(
+        x=list(df_future.index) + list(df_future.index[::-1]),
+        y=list(df_future['Ensemble'] + half_gap) + list((df_future['Ensemble'] - half_gap)[::-1]),
+        fill='toself',
+        fillcolor='rgba(255,255,255,0.04)',
+        line=dict(color='rgba(0,0,0,0)'),
+        showlegend=False,
+        hoverinfo='skip',
+        name='Intervalle'
+    ))
+
+    # Ensemble
+    fig.add_trace(go.Scatter(
+        x=df_future.index, y=df_future['Ensemble'],
+        mode='lines+markers', name='Ensemble',
+        line=dict(color='#FFFFFF', width=2.5),
+        marker=dict(size=5, color='#FFFFFF', symbol='circle'),
+        hovertemplate='%{x|%d %b %Y}<br>$%{y:.2f}<extra>Ensemble</extra>'
+    ))
+
+    # ---------------------------------------------------------------
+    # FIX CRITIQUE : add_vline() est buggé avec les axes datetime dans
+    # certaines versions de Plotly (TypeError int + str / Timestamp).
+    # Remplacement par une trace Scatter verticale + add_annotation().
+    # ---------------------------------------------------------------
+    all_y_values = (
+        [float(v) for v in recent_df['Close'].dropna()]
+        + [float(v) for v in df_future['Bi-LSTM']]
+        + [float(v) for v in df_future['GRU']]
+        + [float(v) for v in df_future['Ensemble']]
+    )
+    y_min = min(all_y_values) * 0.97
+    y_max = max(all_y_values) * 1.03
+
+    fig.add_trace(go.Scatter(
+        x=[last_date, last_date],
+        y=[y_min, y_max],
+        mode='lines',
+        showlegend=False,
+        hoverinfo='skip',
+        line=dict(color='#2A2A2A', width=1),
+    ))
+    fig.add_annotation(
+        x=last_date,
+        y=y_max,
+        text="Aujourd'hui",
+        showarrow=False,
+        xanchor='left',
+        yanchor='top',
+        font=dict(color='#444', size=10, family='DM Sans'),
+        bgcolor='rgba(0,0,0,0)',
+        bordercolor='rgba(0,0,0,0)',
+    )
+
+    fig.update_layout(
+        paper_bgcolor='#0A0A0A',
+        plot_bgcolor='#0A0A0A',
+        margin=dict(l=0, r=0, t=20, b=0),
+        height=420,
+        hovermode='x unified',
+        xaxis=dict(
+            showgrid=False, zeroline=False, showline=False,
+            tickfont=dict(family='DM Sans', size=10, color='#444'),
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor='#141414', zeroline=False, showline=False,
+            tickfont=dict(family='DM Sans', size=10, color='#444'),
+            tickprefix='$',
+        ),
+        legend=dict(
+            orientation='h', x=0, y=1.06,
+            font=dict(family='DM Sans', size=10, color='#666'),
+            bgcolor='rgba(0,0,0,0)', bordercolor='rgba(0,0,0,0)',
+        ),
+        hoverlabel=dict(
+            bgcolor='#111111', bordercolor='#2A2A2A',
+            font=dict(family='DM Sans', size=11, color='#CCC'),
+        ),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ---- CONVERGENCE ----
+    divergence     = abs(float(df_future['Bi-LSTM'].iloc[-1]) - float(df_future['GRU'].iloc[-1]))
+    divergence_pct = (divergence / float(df_future['Ensemble'].iloc[-1])) * 100
+
+    if divergence_pct < 2:
+        conv_icon, conv_title = "🟢", "Forte convergence"
+        conv_msg = "Les deux modèles sont très alignés — la prédiction Ensemble est fiable."
+    elif divergence_pct < 5:
+        conv_icon, conv_title = "🟡", "Convergence modérée"
+        conv_msg = "Accord raisonnable entre les modèles, quelques divergences à noter."
+    else:
+        conv_icon, conv_title = "🔴", "Divergence significative"
+        conv_msg = "Les modèles divergent — interprétez la prédiction avec prudence."
+
+    st.markdown(f"""
+    <div class="convergence-box">
+        <div class="conv-indicator">{conv_icon}</div>
+        <div>
+            <div class="conv-title">{conv_title} · Écart ${divergence:.2f} ({divergence_pct:.1f}%)</div>
+            <div class="conv-msg">{conv_msg}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---- TENDANCES ----
+    st.markdown('<div class="section-label">Tendances</div>', unsafe_allow_html=True)
+    tc1, tc2, tc3 = st.columns(3)
+
+    def trend_html(col_obj, model_name, var, final_price):
+        pct_class = "trend-pct-up" if var >= 0 else "trend-pct-down"
+        label_txt = "Haussière"    if var >= 0 else "Baissière"
+        with col_obj:
             st.markdown(f"""
-            <div class="info-box" style="border-left-color: #f5576c;">
-                <h4>{emoji} GRU - Tendance {tendance.capitalize()}</h4>
-                <p style='font-size: 1.3rem; color: {color}; font-weight: bold;'>
-                    {gru_variation:+.2f}%
-                </p>
-                <p style='font-size: 0.9rem;'>Prix final: ${df_future['GRU'].iloc[-1]:.2f}</p>
+            <div class="trend-card">
+                <div class="trend-model">{model_name}</div>
+                <div class="{pct_class}">{var:+.2f}%</div>
+                <div class="trend-label">{label_txt}</div>
+                <div class="trend-final">Cible · ${final_price:.2f}</div>
             </div>
             """, unsafe_allow_html=True)
-        
-        with col3:
-            emoji, tendance, color = get_trend_info(ensemble_variation)
-            st.markdown(f"""
-            <div class="info-box" style="border-left-color: #00f2fe;">
-                <h4>{emoji} Ensemble - Tendance {tendance.capitalize()}</h4>
-                <p style='font-size: 1.3rem; color: {color}; font-weight: bold;'>
-                    {ensemble_variation:+.2f}%
-                </p>
-                <p style='font-size: 0.9rem;'>Prix final: ${df_future['Ensemble'].iloc[-1]:.2f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Convergence/Divergence des modèles
-        st.markdown("### 🔍 Analyse de Convergence")
-        
-        divergence = abs(df_future['Bi-LSTM'].iloc[-1] - df_future['GRU'].iloc[-1])
-        divergence_pct = (divergence / df_future['Ensemble'].iloc[-1]) * 100
-        
-        if divergence_pct < 2:
-            convergence_status = "🟢 Forte convergence"
-            convergence_msg = "Les deux modèles sont très alignés, renforçant la fiabilité de la prédiction."
-        elif divergence_pct < 5:
-            convergence_status = "🟡 Convergence modérée"
-            convergence_msg = "Les modèles montrent un accord raisonnable avec quelques divergences."
-        else:
-            convergence_status = "🔴 Divergence significative"
-            convergence_msg = "Les modèles présentent des prédictions divergentes, la prudence est recommandée."
-        
+
+    trend_html(tc1, "Bi-LSTM",  bilstm_var,   float(df_future['Bi-LSTM'].iloc[-1]))
+    trend_html(tc2, "GRU",      gru_var,       float(df_future['GRU'].iloc[-1]))
+    trend_html(tc3, "Ensemble", ensemble_var,  float(df_future['Ensemble'].iloc[-1]))
+
+    # ---- STATISTIQUES ----
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Statistiques</div>', unsafe_allow_html=True)
+
+    s1, s2 = st.columns(2)
+
+    # FIX : corr() retourne NaN si prediction_days == 1 (variance nulle sur 1 point)
+    raw_corr = df_future['Bi-LSTM'].corr(df_future['GRU'])
+    corr_str = f"{raw_corr:.4f}" if (not np.isnan(raw_corr)) else "N/A (1 point)"
+
+    tendance_commune = "Oui ✓" if bilstm_var * gru_var > 0 else "Non ✗"
+
+    ens_mean  = float(df_future['Ensemble'].mean())
+    ens_std   = float(df_future['Ensemble'].std()) if prediction_days > 1 else 0.0
+    ens_max   = float(df_future['Ensemble'].max())
+    ens_min   = float(df_future['Ensemble'].min())
+    vol_str   = f"{(ens_std / ens_mean * 100):.2f}%" if ens_mean != 0 else "N/A"
+    gap_mean  = float(abs(df_future['Bi-LSTM'] - df_future['GRU']).mean())
+    gap_max   = float(abs(df_future['Bi-LSTM'] - df_future['GRU']).max())
+
+    with s1:
         st.markdown(f"""
-        <div class="prediction-card">
-            <h4>{convergence_status}</h4>
-            <p><b>Écart entre les modèles:</b> ${divergence:.2f} ({divergence_pct:.2f}%)</p>
-            <p>{convergence_msg}</p>
+        <div class="stats-grid">
+            <div class="stats-cell">
+                <div class="stats-key">Prix moyen (Ensemble)</div>
+                <div class="stats-val">${ens_mean:.2f}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Volatilité prédite</div>
+                <div class="stats-val">{vol_str}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Maximum prédit</div>
+                <div class="stats-val">${ens_max:.2f}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Minimum prédit</div>
+                <div class="stats-val">${ens_min:.2f}</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Tableau des valeurs comparatif
-        st.markdown("### 📋 Données Détaillées - Comparaison Complète")
-        with st.expander("📊 Voir le tableau complet des prédictions"):
-            df_display = df_future.copy()
-            df_display['Date'] = df_display.index.strftime('%d/%m/%Y')
-            df_display['Bi-LSTM ($)'] = df_display['Bi-LSTM'].apply(lambda x: f"${x:.2f}")
-            df_display['GRU ($)'] = df_display['GRU'].apply(lambda x: f"${x:.2f}")
-            df_display['Ensemble ($)'] = df_display['Ensemble'].apply(lambda x: f"${x:.2f}")
-            df_display['Écart Bi-LSTM/GRU'] = abs(df_future['Bi-LSTM'] - df_future['GRU']).apply(lambda x: f"${x:.2f}")
-            
-            st.dataframe(
-                df_display[['Date', 'Bi-LSTM ($)', 'GRU ($)', 'Ensemble ($)', 'Écart Bi-LSTM/GRU']],
-                use_container_width=True,
-                height=400
-            )
-        
-        # Statistiques supplémentaires
-        st.markdown("### 📊 Statistiques Comparatives")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="info-box">
-                <h4>📈 Statistiques de l'Ensemble</h4>
-                <ul>
-                    <li><b>Prix moyen prédit:</b> ${df_future['Ensemble'].mean():.2f}</li>
-                    <li><b>Maximum prédit:</b> ${df_future['Ensemble'].max():.2f}</li>
-                    <li><b>Minimum prédit:</b> ${df_future['Ensemble'].min():.2f}</li>
-                    <li><b>Volatilité:</b> {(df_future['Ensemble'].std() / df_future['Ensemble'].mean() * 100):.2f}%</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="info-box">
-                <h4>🎯 Concordance des Modèles</h4>
-                <ul>
-                    <li><b>Écart moyen:</b> ${abs(df_future['Bi-LSTM'] - df_future['GRU']).mean():.2f}</li>
-                    <li><b>Écart maximum:</b> ${abs(df_future['Bi-LSTM'] - df_future['GRU']).max():.2f}</li>
-                    <li><b>Corrélation:</b> {df_future['Bi-LSTM'].corr(df_future['GRU']):.4f}</li>
-                    <li><b>Tendance commune:</b> {('Oui ✅' if bilstm_variation * gru_variation > 0 else 'Non ⚠️')}</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
 
-# Footer
-st.markdown("---")
+    with s2:
+        st.markdown(f"""
+        <div class="stats-grid">
+            <div class="stats-cell">
+                <div class="stats-key">Corrélation des modèles</div>
+                <div class="stats-val">{corr_str}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Tendance commune</div>
+                <div class="stats-val">{tendance_commune}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Écart moyen</div>
+                <div class="stats-val">${gap_mean:.2f}</div>
+            </div>
+            <div class="stats-cell">
+                <div class="stats-key">Écart maximum</div>
+                <div class="stats-val">${gap_max:.2f}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ---- TABLEAU DÉTAILLÉ ----
+    st.markdown('<hr class="hr">', unsafe_allow_html=True)
+    with st.expander("Données complètes — tableau de prédiction"):
+        # FIX : reconstruction propre du DataFrame d'affichage
+        # pour éviter tout conflit entre colonnes numériques et colonnes string.
+        df_display = pd.DataFrame(
+            {
+                'Bi-LSTM ($)':       [f"${v:.2f}" for v in df_future['Bi-LSTM']],
+                'GRU ($)':           [f"${v:.2f}" for v in df_future['GRU']],
+                'Ensemble ($)':      [f"${v:.2f}" for v in df_future['Ensemble']],
+                'Écart Bi-LSTM/GRU': [f"${abs(b-g):.2f}" for b, g in zip(df_future['Bi-LSTM'], df_future['GRU'])],
+            },
+            index=df_future.index.strftime('%d/%m/%Y')
+        )
+        df_display.index.name = 'Date'
+        st.dataframe(df_display, use_container_width=True, height=380)
+
+
+# ==========================================
+# FOOTER
+# ==========================================
 st.markdown("""
-<div style='text-align: center; color: #888; padding: 2rem 0;'>
-    <p>🤖 Développé avec Streamlit & PyTorch | Modèles Bi-LSTM & GRU</p>
-    <p style='font-size: 0.9rem;'>
-        ⚠️ Avertissement: Les prédictions financières comportent des risques. 
-        Cette application est destinée à des fins éducatives uniquement.
-    </p>
+<div class="footer">
+    <div class="footer-brand">NFLX · IA Ensemble</div>
+    <div class="footer-warning">
+        Les projections présentées sont générées par des modèles d'apprentissage automatique
+        à titre éducatif uniquement. Elles ne constituent pas un conseil financier.
+    </div>
 </div>
 """, unsafe_allow_html=True)
