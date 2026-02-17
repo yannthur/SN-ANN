@@ -202,6 +202,20 @@ def load_data():
     
     return pd.DataFrame()
 
+def predict_future(model, initial_sequence, num_days, device):
+    """Génère des prédictions pour un modèle donné."""
+    current_seq = initial_sequence.clone()
+    predictions = []
+    
+    for _ in range(num_days):
+        with torch.no_grad():
+            pred = model(current_seq)
+            predictions.append(pred.item())
+            pred_tensor = pred.view(1, 1, 1)
+            current_seq = torch.cat((current_seq[:, 1:, :], pred_tensor), dim=1)
+    
+    return predictions
+
 # ==========================================
 # 4. SIDEBAR - PARAMÈTRES
 # ==========================================
