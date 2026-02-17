@@ -166,35 +166,41 @@ def load_trained_models(bilstm_path, gru_path, device):
     
     return bilstm_model, gru_model
 
-@st.cache_data(ttl=3600)  # Cache pendant 1 heure
+@st.cache_data(ttl=3600)
 def load_data():
-    """Charge les données historiques via Yahoo Finance."""
-    data = yf.download(TICKER, period="2y", interval="1d", progress=False)
+    """Charge les données historiques via Yahoo Finance avec retry."""
+    import time
     
-    if isinstance(data.columns, pd.MultiIndex):
-        data = data.xs('Close', level=0, axis=1) if 'Close' in data.columns.get_level_values(0) else data
-    elif 'Close' in data.columns:
-        data = data[['Close']]
-        
-    if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
-         data = data.iloc[:, 0].to_frame()
+    for attempt in range(3):
+        try:
+            data = yf.download(TICKER, period="2y", interval="1d", progress=False)
+            
+            if data.empty:
+                if attempt < 2:
+                    time.sleep(5 * (attempt + 1))  # wait 5s, then 10s
+                    continue
+                else:
+                    return pd.DataFrame()  # return empty after 3 tries
+            
+            if isinstance(data.columns, pd.MultiIndex):
+                data = data.xs('Close', level=0, axis=1) if 'Close' in data.columns.get_level_values(0) else data
+            elif 'Close' in data.columns:
+                data = data[['Close']]
+            
+            if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
+                data = data.iloc[:, 0].to_frame()
+            
+            data.columns = ['Close']
+            return data
+            
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))
+            else:
+                st.error(f"Impossible de télécharger les données après 3 tentatives: {e}")
+                return pd.DataFrame()
     
-    data.columns = ['Close']
-    return data
-
-def predict_future(model, initial_sequence, num_days, device):
-    """Génère des prédictions pour un modèle donné."""
-    current_seq = initial_sequence.clone()
-    predictions = []
-    
-    for _ in range(num_days):
-        with torch.no_grad():
-            pred = model(current_seq)
-            predictions.append(pred.item())
-            pred_tensor = pred.view(1, 1, 1)
-            current_seq = torch.cat((current_seq[:, 1:, :], pred_tensor), dim=1)
-    
-    return predictions
+    return pd.DataFrame()
 
 # ==========================================
 # 4. SIDEBAR - PARAMÈTRES
@@ -276,7 +282,13 @@ with st.spinner('🔄 Chargement des modèles et des données...'):
         st.error(f"❌ Erreur lors du chargement: {str(e)}")
         st.stop()
 
-# Affichage des métriques actuelles
+# Guard: stop cleanly if data failed to load
+if df is None or df.empty:
+    st.error("❌ Impossible de charger les données depuis Yahoo Finance (rate limit ou erreur réseau).")
+    st.warning("💡 Streamlit Cloud partage des IPs avec d'autres apps — Yahoo Finance bloque parfois ces requêtes. Relancez dans quelques minutes.")
+    st.stop()
+
+# Safe to proceed
 last_date = df.index[-1]
 last_price = df['Close'].iloc[-1]
 
