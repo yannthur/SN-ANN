@@ -7,6 +7,7 @@ import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 import plotly.graph_objects as go
 from datetime import timedelta
+import time
 
 # ==========================================
 # 1. CONFIGURATION
@@ -259,6 +260,17 @@ html, body, [class*="css"] {
 }
 .footer-brand   { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.1em; color: #333; }
 .footer-warning { font-size: 0.72rem; color: #444; max-width: 480px; text-align: right; }
+
+.error-box {
+    background: #1A0A0A;
+    border: 1px solid #3A1A1A;
+    border-left: 3px solid #E50914;
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0;
+}
+.error-box-title { font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: #E50914; margin-bottom: 0.5rem; }
+.error-box-msg   { font-size: 0.85rem; color: #888; line-height: 1.6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -273,6 +285,10 @@ NUM_LAYERS    = 2
 INPUT_SIZE    = 1
 OUTPUT_SIZE   = 1
 TICKER        = "NFLX"
+
+# Nombre max de tentatives pour yfinance
+MAX_RETRIES   = 3
+RETRY_DELAY   = 4   # secondes entre chaque tentative
 
 
 # ==========================================
@@ -328,17 +344,47 @@ def load_trained_models(bilstm_path, gru_path, device):
 
 
 @st.cache_data(ttl=3600)
-def load_data():
-    data = yf.download(TICKER, period="2y", interval="1d", progress=False)
-    if isinstance(data.columns, pd.MultiIndex):
-        if 'Close' in data.columns.get_level_values(0):
-            data = data.xs('Close', level=0, axis=1)
-    elif 'Close' in data.columns:
-        data = data[['Close']]
-    if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
-        data = data.iloc[:, 0].to_frame()
-    data.columns = ['Close']
-    return data
+def load_data() -> pd.DataFrame:
+    """
+    Télécharge les données NFLX avec retry automatique en cas de rate-limit.
+    Retourne un DataFrame avec colonne 'Close', ou un DataFrame VIDE si échec total.
+    L'appelant DOIT vérifier df.empty avant d'utiliser les données.
+    """
+    last_exc = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            data = yf.download(TICKER, period="2y", interval="1d", progress=False)
+
+            # Nettoyage MultiIndex éventuel
+            if isinstance(data.columns, pd.MultiIndex):
+                if 'Close' in data.columns.get_level_values(0):
+                    data = data.xs('Close', level=0, axis=1)
+            elif 'Close' in data.columns:
+                data = data[['Close']]
+
+            if isinstance(data, pd.DataFrame) and data.shape[1] > 1:
+                data = data.iloc[:, 0].to_frame()
+
+            data.columns = ['Close']
+            data = data.dropna()
+
+            # Vérification : au moins SEQ_LENGTH + 30 lignes utiles
+            if len(data) >= SEQ_LENGTH + 1:
+                return data
+
+            # Données insuffisantes même si téléchargement réussi
+            last_exc = ValueError(f"Seulement {len(data)} lignes reçues (minimum requis : {SEQ_LENGTH + 1})")
+
+        except Exception as exc:
+            last_exc = exc
+
+        # Attendre avant de réessayer (sauf dernière tentative)
+        if attempt < MAX_RETRIES:
+            time.sleep(RETRY_DELAY)
+
+    # Toutes les tentatives ont échoué → retourner DataFrame vide avec le bon index
+    st.session_state["data_error"] = str(last_exc)
+    return pd.DataFrame(columns=['Close'])
 
 
 def predict_future(model, initial_sequence, num_days, device):
@@ -369,11 +415,13 @@ with st.sidebar:
     st.markdown("")
 
     st.markdown('<div class="section-label">Historique affiché</div>', unsafe_allow_html=True)
+    # FIX #1 : label non-vide pour éviter le warning d'accessibilité
     history_days = st.selectbox(
-        "",
+        "Nombre de jours d'historique",          # ← label visible requis par Streamlit
         options=[5, 15, 30, 60, 90, 180, 365],
         index=2,
-        format_func=lambda x: f"{x} jours"
+        format_func=lambda x: f"{x} jours",
+        label_visibility="collapsed"             # ← on le cache visuellement, pas sémantiquement
     )
 
     st.markdown('<hr class="hr">', unsafe_allow_html=True)
@@ -420,19 +468,56 @@ with st.sidebar:
 # ==========================================
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# Réinitialise l'erreur de données à chaque run
+if "data_error" not in st.session_state:
+    st.session_state["data_error"] = None
+
 with st.spinner('Chargement des modèles et données…'):
     try:
         bilstm_model, gru_model = load_trained_models(
             'best_bilstm_nflx.pth', 'best_gru_nflx.pth', device
         )
-        df = load_data()
     except FileNotFoundError as e:
         st.error(f"Fichier manquant : {e}")
         st.info("Placez `best_bilstm_nflx.pth` et `best_gru_nflx.pth` dans le répertoire de l'app.")
         st.stop()
     except Exception as e:
-        st.error(f"Erreur au chargement : {e}")
+        st.error(f"Erreur au chargement des modèles : {e}")
         st.stop()
+
+    df = load_data()
+
+
+# ==========================================
+# FIX #2 : Guard central — df vide = erreur yfinance
+# On affiche un message clair et on STOPPE proprement.
+# ==========================================
+if df.empty:
+    err_detail = st.session_state.get("data_error", "Erreur inconnue")
+    st.markdown(f"""
+    <div class="hero">
+        <p class="hero-ticker">NET<span>FLIX</span></p>
+        <p class="hero-desc">NASDAQ · NFLX · Données indisponibles</p>
+    </div>
+    <div class="error-box">
+        <div class="error-box-title">⚠ Impossible de récupérer les données de marché</div>
+        <div class="error-box-msg">
+            Yahoo Finance a temporairement bloqué la requête (rate-limit). L'app a réessayé {MAX_RETRIES} fois sans succès.<br><br>
+            <b>Détail :</b> {err_detail}<br><br>
+            <b>Solutions :</b><br>
+            • Patientez 1 à 2 minutes puis rechargez la page<br>
+            • Si l'erreur persiste, redémarrez l'app depuis le menu Streamlit Cloud<br>
+            • Le cache se réinitialise automatiquement après 1 heure
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Bouton de rechargement forcé (vide le cache data)
+    if st.button("🔄 Réessayer maintenant"):
+        load_data.clear()
+        st.rerun()
+
+    st.stop()   # ← arrêt propre, aucune autre ligne ne s'exécute
 
 
 # ==========================================
@@ -440,7 +525,6 @@ with st.spinner('Chargement des modèles et données…'):
 # ==========================================
 last_date  = df.index[-1]
 
-# float() explicite — évite les types scalaires pandas dans les f-strings et comparaisons
 last_price = float(df['Close'].iloc[-1])
 price_1d   = float((df['Close'].iloc[-1] - df['Close'].iloc[-2])  / df['Close'].iloc[-2]  * 100) if len(df) > 1  else 0.0
 price_7d   = float((df['Close'].iloc[-1] - df['Close'].iloc[-7])  / df['Close'].iloc[-7]  * 100) if len(df) > 7  else 0.0
@@ -562,7 +646,9 @@ if predict_button:
 
     # ---- GRAPHIQUE ----
     st.markdown("")
-    recent_df = df.iloc[-history_days:]
+    # FIX #3 : s'assurer que history_days ne dépasse pas la longueur réelle du df
+    safe_history = min(history_days, len(df))
+    recent_df = df.iloc[-safe_history:]
 
     fig = go.Figure()
 
@@ -628,11 +714,7 @@ if predict_button:
         hovertemplate='%{x|%d %b %Y}<br>$%{y:.2f}<extra>Ensemble</extra>'
     ))
 
-    # ---------------------------------------------------------------
-    # FIX CRITIQUE : add_vline() est buggé avec les axes datetime dans
-    # certaines versions de Plotly (TypeError int + str / Timestamp).
-    # Remplacement par une trace Scatter verticale + add_annotation().
-    # ---------------------------------------------------------------
+    # Ligne verticale "Aujourd'hui" via Scatter (pas add_vline — buggé avec datetime)
     all_y_values = (
         [float(v) for v in recent_df['Close'].dropna()]
         + [float(v) for v in df_future['Bi-LSTM']]
@@ -741,7 +823,6 @@ if predict_button:
 
     s1, s2 = st.columns(2)
 
-    # FIX : corr() retourne NaN si prediction_days == 1 (variance nulle sur 1 point)
     raw_corr = df_future['Bi-LSTM'].corr(df_future['GRU'])
     corr_str = f"{raw_corr:.4f}" if (not np.isnan(raw_corr)) else "N/A (1 point)"
 
@@ -802,8 +883,6 @@ if predict_button:
     # ---- TABLEAU DÉTAILLÉ ----
     st.markdown('<hr class="hr">', unsafe_allow_html=True)
     with st.expander("Données complètes — tableau de prédiction"):
-        # FIX : reconstruction propre du DataFrame d'affichage
-        # pour éviter tout conflit entre colonnes numériques et colonnes string.
         df_display = pd.DataFrame(
             {
                 'Bi-LSTM ($)':       [f"${v:.2f}" for v in df_future['Bi-LSTM']],
